@@ -31,6 +31,7 @@
 #include <ctime>
 #include <curl/curl.h>
 #include <obs-module.h>
+#include <sstream>
 #include <stdio.h>
 #include <util/platform.h>
 #if _WIN32
@@ -131,15 +132,38 @@ bool download_cover(const QString& url)
     if (url == "n/a")
         return false;
     bool result = false;
-    auto path = config::cover_path;
-    auto tmp = path + ".tmp";
+    auto output_path = config::cover_path;
+    auto tmp = output_path + ".tmp";
+
+    static const int prefix_length =
+#if _WIN32
+        8;
+#else
+        7;
+#endif
+    if (url.startsWith("file://")) {
+        // Don't use curl for local files
+        QString new_cover_path = QUrl::fromPercentEncoding(url.mid(prefix_length).toUtf8());
+        QFile cover(new_cover_path);
+        if (cover.exists()) {
+            QFile current(output_path);
+            current.remove();
+            if (QFile::copy(new_cover_path, output_path))
+                return true;
+            berr("Couldn't copy cover file from '%s' to '%s'", qt_to_utf8(new_cover_path), qt_to_utf8(output_path));
+            return false;
+        }
+        berr("Cover file '%s' does not exist", qt_to_utf8(new_cover_path));
+        return false;
+    }
+
     result = curl_download(qt_to_utf8(url), qt_to_utf8(tmp));
 
     /* Replace cover only after download is done */
-    QFile current(path);
+    QFile current(output_path);
     current.remove();
 
-    if (result && !QFile::rename(tmp, config::cover_path)) {
+    if (result && !QFile::rename(tmp, output_path)) {
         berr("Couldn't rename temporary cover file");
         result = false;
     }
