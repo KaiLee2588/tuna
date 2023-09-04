@@ -262,7 +262,7 @@ QJsonDocument curl_get_json(const char* url)
 {
     CURL* curl = curl_easy_init();
     if (curl) {
-        std::string response;
+        std::string response {};
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
@@ -281,6 +281,7 @@ QJsonDocument curl_get_json(const char* url)
             else
                 return doc;
         }
+        curl_easy_cleanup(curl);
     }
     berr("curl_easy_init() failed when receiving json from %s", url);
     return {};
